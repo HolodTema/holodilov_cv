@@ -31,29 +31,29 @@ gc = g.sum(axis=1)
 assert np.all(gc == np.array([3., 3., 3., 3., 3.]))
 
 h = np.arange(5) + 1
-hc = ?
+hc = h * 2
 
 assert np.all(hc == np.array([2., 4., 6., 8., 10.]))
 
 j = np.array([1, 2, 3, 4, 9, 7, 11, 12, 15, 14, 33])
-mask = ?
+mask = j%3 == 0
 jc = j[mask]
 
 assert np.all(jc == np.array([3, 9, 12, 15, 33]))
 
 k = np.array([1, 2, 3, 4, 5])
 l = np.array([2, 2, 3, 3, 4])
-kl = ?
+kl = k ** l
 
 assert np.all(kl == np.array([1, 4, 27, 64, 625]))
 
 m = np.array([2, 2, 2, 3, 3, 3])
-mc = ?
+mc = np.std(m, ddof=0)
 
 assert mc == 0.5
 
 n = np.array([1, 2, 3, 4, 5, 6])
-nc = ?
+nc = np.median(n)
 
 assert nc == 3.5
 
