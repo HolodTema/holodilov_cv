@@ -24,37 +24,17 @@ assert image.shape[0] == image.shape[1]
 color1 = [255, 128, 0]
 color2 = [0, 128, 255]
 
-# now image is with zeros
-# we need to fill our image with color gradient
-for i, koeff in enumerate(np.linspace(0.0, 1, imageSize)):
-    red = lin_interpolation(color1[0], color2[0], koeff/2)
-    green = lin_interpolation(color1[1], color2[1], koeff/2)
-    blue = lin_interpolation(color1[2], color2[2], koeff/2)
-    
-    # for j in range(i):
-        # image[i-j, j, :] = [red, green, blue]
-        # image[imageSize-1-i-j, imageSize-1-j, :] = [red, green, blue]
-
-    paddingRow = 0
-    paddingColumn = 0
-    while (i - paddingRow) >= 0 and (paddingColumn < imageSize):
-        image[i - paddingRow, paddingColumn, :] = [red, green, blue]
-        paddingRow += 1
-        paddingColumn += 1
-    
-
-    red = lin_interpolation(color1[0], color2[0], 1-koeff/2)
-    green = lin_interpolation(color1[1], color2[1], 1-koeff/2)
-    blue = lin_interpolation(color1[2], color2[2], 1-koeff/2)
-    
-
-    paddingRow = 0
-    paddingColumn = 0
-    while (i + paddingRow) < imageSize and (imageSize-1-paddingColumn) >= 0:
-        image[i + paddingRow, imageSize - 1 - paddingColumn, :] = [red, green, blue]
-        paddingRow += 1
-        paddingColumn += 1
-
+# now in pixel(0, 0) we have koeff = 0 (top left corner)
+# in pixel(size-1, size-1) we have koeff = 1 (bottom right corner)
+maxIndexSum = 2 * (imageSize - 1)
+for i in range(imageSize):
+    for j in range(imageSize):
+        # koeff value must be in interval 0-1, that is why we need normalization.
+        koeff = (i + j) / maxIndexSum
+        red = lin_interpolation(color1[0], color2[0], koeff)
+        green = lin_interpolation(color1[1], color2[1], koeff)
+        blue = lin_interpolation(color1[2], color2[2], koeff)
+        image[i, j, :] = [red, green, blue]
 
 plt.figure(1)
 plt.imshow(image)
