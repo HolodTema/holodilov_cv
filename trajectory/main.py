@@ -5,6 +5,7 @@ from itertools import permutations
 
 
 AMOUNT_IMAGES = 100
+MAX_STEP_DISTANCE_LIMIT = 50
 
 def load_images():
     images = []
@@ -25,9 +26,19 @@ def find_centroid_lists(images):
     return centroid_lists
 
 
+
 # centroid1, centroid2 - tuple<float>
 def get_distance(centroid1, centroid2):
     return ((centroid1[0] - centroid2[0])**2 + (centroid1[1] - centroid2[1])**2)**0.5
+
+
+
+def check_centroids_perm_max_distance_limit(amount_objects, centroids_prev, centroids_perm):
+    for i in range(amount_objects):
+        distance = get_distance(centroids_prev[i], centroids_perm[i])
+        if distance > MAX_STEP_DISTANCE_LIMIT:
+            return False
+    return True
 
 
 
@@ -53,6 +64,8 @@ def main():
     # UPD: actually only one attribute (distance) is not enough.
     # in case of objects are too close to each other, min_distance between current and previous frame
     # is not enough.
+    # After getting min_centroids_perm I also check max distance limit for every object.
+
     dict_trajectories = {i: [] for i in range(amount_objects)}
     for i, centroid in enumerate(centroids_first_image):
         dict_trajectories[i] += [centroid]
@@ -62,7 +75,9 @@ def main():
         centroids_current = centroid_lists[i]
 
         min_sum = 2**16
-        min_centroids_perm = centroids_current
+        # for greedy algorithm in case of failing max distance limit
+        min_centroids_perm_list = [centroids_current]
+
         for centroids_current_perm in permutations(centroids_current):
             # we need to calculate sum of distances objects in centroids_prev and centroids_current_perm
             sum_distances = 0.0
@@ -70,10 +85,26 @@ def main():
                 sum_distances += get_distance(centroids_current_perm[obj_id], centroids_prev[obj_id])
             if sum_distances < min_sum:
                 min_sum = sum_distances
-                min_centroids_perm = centroids_current_perm
+                min_centroids_perm_list += [centroids_current_perm]
 
+        
         #so, we found the permutation of centroids which is min distance comparing previous image
-        for i, centroid in enumerate(min_centroids_perm):
+        #
+        # but in case of objects are too close - min distance is not enough
+        # We will check max distane limit
+        good_centroids_perm = min_centroids_perm_list.pop()
+        while not(check_centroids_perm_max_distance_limit(amount_objects, centroids_prev, good_centroids_perm)):
+            good_centroids_perm = min_centroids_perm_list.pop()
+            if len(min_centroids_perm_list) == 0:
+                # every permutation failed max distance limit. 
+                # I suppose this situation is impossible...
+                # but in this case we get source permutation
+                good_centroids_perm = centroids_current
+                break
+
+        # so, good_centroids_perm is appropriate permutation.
+        # we add it to trajectory
+        for i, centroid in enumerate(good_centroids_perm):
             dict_trajectories[i] += [centroid]
         
 
