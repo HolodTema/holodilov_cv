@@ -49,6 +49,10 @@ def main():
     #
     # to understand who is who, we compare current and previous image-centroids
     # and we find the permutation when changes in coordinates are minimal
+    # 
+    # UPD: actually only one attribute (distance) is not enough.
+    # in case of objects are too close to each other, min_distance between current and previous frame
+    # is not enough.
     dict_trajectories = {i: [] for i in range(amount_objects)}
     for i, centroid in enumerate(centroids_first_image):
         dict_trajectories[i] += [centroid]
@@ -80,8 +84,8 @@ def main():
     for obj_id in dict_trajectories:
         trajectory = dict_trajectories[obj_id]
 
-        trajectory_y = [centroid[0] for centroid in trajectory]
-        trajectory_x = [centroid[1] for centroid in trajectory]
+        trajectory_x = [centroid[0] for centroid in trajectory]
+        trajectory_y = [centroid[1] for centroid in trajectory]
 
         plt.plot(trajectory_x, trajectory_y, marker='o', linewidth=2, markersize=4, label=f"object {obj_id}")
 
