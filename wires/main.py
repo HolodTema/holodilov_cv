@@ -30,8 +30,8 @@ def main():
             if np.any(image[i-1, :] != 0) and np.all(image[i, :] == 0):
                 wire_sectors += [(image[crop_start_index:i+1, :]).copy()]
                 crop_start_index = i
-                plt.imshow(wire_sectors[-1])
-                plt.show()
+                #plt.imshow(wire_sectors[-1])
+                #plt.show()
 
         # use opening() to split wire into parts
         # if wire is not broken, it has one part
