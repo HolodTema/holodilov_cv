@@ -24,18 +24,17 @@ def main():
 
         wire_sectors = list()
 
-        horizontal_line = np.zeros(image.shape[1])
-        
         crop_start_index = 0
-        for i in range(image.shape[0]):
-            if image[i, :] == horizontal_line:
+        for i in range(1, image.shape[0]):
+            if np.all(image[i-1, :] != 0) and np.all(image[i, :] == 0):
                 wire_sectors += [(image[crop_start_index:i, :]).copy()]
                 crop_start_index = i
         
         print(f"Amount wires: {len(wire_sectors)}")
-
+        
+        gap_kernel = np.ones((3, 1))
         for i in range(len(wire_sectors)):
-            wire_sectors[i] = opening(wire_sectors[i], np.array((3, 1)))
+            wire_sectors[i] = opening(wire_sectors[i], gap_kernel)
             amount_wire_parts = label(wire_sectors[i]).max()
             print(f"Wire {i}: amount parts: {amount_wire_parts}")
         print()
