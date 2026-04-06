@@ -106,7 +106,9 @@ def main():
         # we add it to trajectory
         for i, centroid in enumerate(good_centroids_perm):
             dict_trajectories[i] += [centroid]
-        
+
+        # in the end we update centroids_prev to predict the next frame of trajectory
+        centroids_prev = good_centroids_perm
 
     # now dict_trajectory contains right trajectories for all the objects
     # it is time to build matplotlib visualisation!
