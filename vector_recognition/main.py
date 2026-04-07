@@ -43,7 +43,7 @@ def get_vertical_lines_attribute(symbol_prop):
 
     for x in range(symbol_prop.image.shape[1]):
         result += int(np.sum(symbol_prop.image[:, x]) >= min_limit)
-    return result
+    return result / symbol_prop.image.shape[1]
 
 
 
@@ -54,7 +54,7 @@ def get_horizontal_lines_attribute(symbol_prop):
 
     for y in range(symbol_prop.image.shape[0]):
         result += int(np.sum(symbol_prop.image[y, :]) >= min_limit)
-    return result
+    return result / symbol_prop.image.shape[0]
 
 
 
@@ -114,7 +114,45 @@ def get_euler_attribute(symbol_prop):
     euler_number_normalized = (euler_number + 1) / 2
     return euler_number_normalized
 
+
+
+# vertical_profile - берем вертикальный столбик посередине изображения
+# и считаем кол-во переходов пикселей с 0 до 1 и с 1 до 0 в этом столбике
+# и нормализуем это значение
+def get_vertical_profile_attribute(symbol_prop):
+    center_column = symbol_prop.image.shape[1] // 2
+    vertical_profile = symbol_prop.image[:, center_column]
     
+    # find amount transitions (pixels changing from 0 to 1 or from 1 to 0)
+    transitions = 0
+    for i in range(1, len(vertical_profile)):
+        if vertical_profile[i] != vertical_profile[i-1]:
+            transitions += 1
+    # normalize value
+    return transitions / symbol_prop.image.shape[0]
+
+
+
+# какой процент пикселей изображения находится в его левой части
+def get_left_pixels_percent_attribute(symbol_prop):
+    center_column = symbol_prop.image.shape[1] // 2
+    image_left_part = symbol_prop.image[:, 0:center_column]
+
+    amount_left_pixels = np.sum(image_left_part)
+    return amount_left_pixels / symbol_prop.image.size
+
+
+
+# какой процент пикселей изображения находится в его верхней части
+def get_top_pixels_percent_attribute(symbol_prop):
+    center_row = symbol_prop.image.shape[0] // 2
+    image_top_part = symbol_prop.image[0:center_row, :]
+
+    amount_top_pixels = np.sum(image_top_part)
+    return amount_top_pixels / symbol_prop.image.size
+
+
+
 
 # extractor returns numpy-array of symbol attributes
 # every attribute has value [0; 1]
@@ -127,12 +165,15 @@ def extractor(symbol_prop):
             get_perimeter_attribute(symbol_prop),
             get_aspect_ratio_attribute(symbol_prop),
             get_area_attribute(symbol_prop),
-            # get_eccentricity_attribute(symbol_prop),
+            get_eccentricity_attribute(symbol_prop),
             get_vertical_lines_attribute(symbol_prop),
             get_horizontal_lines_attribute(symbol_prop),
             # после добавления числа эйлера число дырок - это то же самое
             # get_amount_holes_attribute(symbol_prop),
-            get_euler_attribute(symbol_prop)
+            get_euler_attribute(symbol_prop),
+            get_vertical_profile_attribute(symbol_prop),
+            get_left_pixels_percent_attribute(symbol_prop),
+            get_top_pixels_percent_attribute(symbol_prop)
         ])
 
 
