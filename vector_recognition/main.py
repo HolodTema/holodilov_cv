@@ -17,6 +17,62 @@ def get_perimeter_attribute(symbol_prop):
     return symbol_prop.perimeter / symbol_prop.image.size
 
 
+def get_aspect_ratio_attribute(symbol_prop):
+    aspect_ratio = symbol_prop.image.shape[1] / symbol_prop.image.shape[0]
+    if aspect_ratio > 1:
+        return aspect_ratio ** (-1)
+    else:
+        return aspect_ratio
+
+
+
+def get_area_attribute(symbol_prop):
+    return symbol_prop.area / symbol_prop.image.size
+
+
+
+def get_eccentricity_attribute(symbol_prop):
+    return symbol_prop.eccentricity
+
+
+
+# to make this attribute more useful, I addded min limit value
+def get_vertical_lines_attribute(symbol_prop):
+    result = 0
+    min_limit = symbol_prop.image.shape[0] - 5
+
+    for x in range(symbol_prop.image.shape[1]):
+        result += int(np.sum(symbol_prop.image[:, x]) >= min_limit)
+    return result
+
+
+
+# to make this attribute more useful, I addded min limit value
+def get_horizontal_lines_attribute(symbol_prop):
+    result = 0
+    min_limit = symbol_prop.image.shape[1] - 5
+
+    for y in range(symbol_prop.image.shape[0]):
+        result += int(np.sum(symbol_prop.image[y, :]) >= min_limit)
+    return result
+
+
+
+def get_amount_holes_attribute(symbol_prop):
+    symbol_shape = symbol_prop.image.shape
+    # not to count edges as holes, we crop our image
+    new_image = np.zeros((symbol_shape[0] - 2, symbol_shape[1] - 2))
+    new_image = symbol_prop.image[1:-1, 1:-1]
+    
+    # then invert the image to count holes
+    new_image = np.logical_not(new_image)
+    labeled = label(new_image)
+    if labeled.size == 0:
+        return 0
+    amount_holes = labeled.max()
+    return amount_holes
+
+
 
 # extractor returns numpy-array of symbol attributes
 # every attribute has value [0; 1]
@@ -26,7 +82,13 @@ def extractor(symbol_prop):
         return np.array([
             centroid_x, 
             centroid_y,
-            get_perimeter_attribute(symbol_prop)
+            get_perimeter_attribute(symbol_prop),
+            get_aspect_ratio_attribute(symbol_prop),
+            get_area_attribute(symbol_prop),
+            get_eccentricity_attribute(symbol_prop),
+            get_vertical_lines_attribute(symbol_prop),
+            get_horizontal_lines_attribute(symbol_prop),
+            get_amount_holes_attribute(symbol_prop)
         ])
 
 
