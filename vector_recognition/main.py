@@ -58,7 +58,7 @@ def main():
     image_alphabet = imread("./alphabet-small.png")[:, :, :-1]
 
     # make image binary
-    binary_alphabet = image_alphabet.mean(2) > 0
+    binary_alphabet = image_alphabet.mean(2) < 255
     # every object on image have a label (number from 1 to ...)
     labeled_alphabet = label(binary_alphabet)
     # get properties of all the labeled objects
@@ -81,7 +81,9 @@ def main():
     
     plt.figure(figsize=(7, 7))
     
+    print("start recognizing...")
     for i, prop in enumerate(props_to_recognize):
+        print(f"recognizing symbol {i}")
         # classificator() handles attributes of the symbol and returns recognized symbol
         recognized_symbol = classificator(prop, symbol_attributes)
 
