@@ -168,7 +168,7 @@ def extractor(symbol_prop):
             get_eccentricity_attribute(symbol_prop),
             get_vertical_lines_attribute(symbol_prop),
             get_horizontal_lines_attribute(symbol_prop),
-            # после добавления числа эйлера число дырок - это то же самое
+            # после добавления числа эйлера число дырок излишне - это почти то же самое
             # get_amount_holes_attribute(symbol_prop),
             get_euler_attribute(symbol_prop),
             get_vertical_profile_attribute(symbol_prop),
@@ -215,8 +215,6 @@ def main():
     symbol_attributes = dict()
     for symbol_prop, symbol in zip(props_alphabet, symbols):
         symbol_attributes[symbol] = extractor(symbol_prop)
-
-    print(symbol_attributes)
 
     image_to_recognize = imread("./alphabet.png")[:, :, :-1]
     binary_to_recognize = image_to_recognize.mean(2) > 0
