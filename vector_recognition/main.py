@@ -5,16 +5,51 @@ from skimage.measure import label, regionprops
 from pathlib import Path
 
 
+def get_centroid_coords_attributes(symbol_prop):
+    centroid_x, centroid_y = symbol_prop.centroid_local
+    centroid_x /= symbol_prop.image.shape[1]
+    centroid_y /= symbol_prop.image.shape[0]
+    return centroid_x, centroid_y
+
+
+
+def get_perimeter_attribute(symbol_prop):
+    return symbol_prop.perimeter / symbol_prop.image.size
+
+
+
 # extractor returns numpy-array of symbol attributes
 # every attribute has value [0; 1]
 def extractor(symbol_prop):
-    return np.array([])
+        centroid_x, centroid_y = get_centroid_coords_attributes(symbol_prop)
+
+        return np.array([
+            centroid_x, 
+            centroid_y,
+            get_perimeter_attribute(symbol_prop)
+        ])
 
 
-# prop - symbol regionprop we need to recognize
-# symbol_attrs - numpy-array of attributes. Every attribute is in interval [0; 1]
-def classificator(prop, symbol_attributes):
-    return '8'
+
+# prop_to_recognize - symbol regionprop we need to recognize
+# dict_symbol_with_attrs - dict, where key is symbol and value is the list of attrs of the symbol
+def classificator(prop_to_recognize, dict_symbols_with_attrs):
+    attrs_to_recognize = extractor(prop_to_recognize)
+
+    result = ""
+    min_distance = 10**16
+
+    # compare attributes we need to recognize with all possible symbols attributes
+    # and handle distance between attribute lists
+    # minimal distance = we recognized the symbol
+    for symbol in dict_symbols_with_attrs:
+        symbol_attrs = dict_symbols_with_attrs[symbol]
+        distance = ((symbol_attrs - attrs_to_recognize) ** 2).sum() ** 0.5
+        if distance < min_distance:
+            min_distance = distance
+            result = symbol
+    return result
+
 
 
 
