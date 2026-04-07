@@ -39,7 +39,7 @@ def get_eccentricity_attribute(symbol_prop):
 # to make this attribute more useful, I addded min limit value
 def get_vertical_lines_attribute(symbol_prop):
     result = 0
-    min_limit = symbol_prop.image.shape[0] - 5
+    min_limit = symbol_prop.image.shape[0] 
 
     for x in range(symbol_prop.image.shape[1]):
         result += int(np.sum(symbol_prop.image[:, x]) >= min_limit)
@@ -50,7 +50,7 @@ def get_vertical_lines_attribute(symbol_prop):
 # to make this attribute more useful, I addded min limit value
 def get_horizontal_lines_attribute(symbol_prop):
     result = 0
-    min_limit = symbol_prop.image.shape[1] - 5
+    min_limit = symbol_prop.image.shape[1]
 
     for y in range(symbol_prop.image.shape[0]):
         result += int(np.sum(symbol_prop.image[y, :]) >= min_limit)
@@ -74,6 +74,48 @@ def get_amount_holes_attribute(symbol_prop):
 
 
 
+# число эйлера для изображения = кол-во-компонент-связности - кол-во-дыр
+# кол-во-компонент-связности - кол-во частей самого foreground
+# в нашем случае кол-во-компонент-связности = 1 всегда (все наши символы связны)
+def get_euler_attribute(symbol_prop):
+    # это и есть кол-во-компонент-связности. В нашем случае = 1
+    # но мы все равно посчитали так (хардкод - плохо)
+    amount_foreground_components = label(symbol_prop.image).max()
+
+    inverted_image = np.logical_not(symbol_prop.image)
+    #labeled_background_components - все фоновые области символа. 
+    # Это и дырки внутри символа, и фоновые области по границам символа
+    labeled_background_components = label(inverted_image)
+    
+    # create mask with borders of the image
+    boundary_mask = np.zeros_like(symbol_prop.image, dtype=bool)
+    boundary_mask[0, :] = True
+    boundary_mask[-1, :] = True
+    boundary_mask[:, 0] = True
+    boundary_mask[:, -1] = True
+
+    # border_background_labels - номера меток фоновых областей на границе изображения
+    border_background_labels = np.unique(labeled_background_components[boundary_mask])
+
+    # далее надо посчитать только дырки внутри символов
+    amount_holes = 0
+    for label_number in range(1, labeled_background_components.max() + 1):
+        if label_number not in border_background_labels:
+            # если номера метки нет в списке граничных номеров меток - это дырка.
+            amount_holes += 1
+    
+    # находим число эйлера
+    euler_number = amount_foreground_components - amount_holes
+
+    # число эйлера надо нормализовать - чтобы оно было в интервале [0; 1]
+    # мы знаем amount_foreground_components = 1 всегда для всех наших символов
+    # мы знаем amount_holes от 0 до 2 
+    # поэтому euler_number in [-1; 1]
+    euler_number_normalized = (euler_number + 1) / 2
+    return euler_number_normalized
+
+    
+
 # extractor returns numpy-array of symbol attributes
 # every attribute has value [0; 1]
 def extractor(symbol_prop):
@@ -85,10 +127,12 @@ def extractor(symbol_prop):
             get_perimeter_attribute(symbol_prop),
             get_aspect_ratio_attribute(symbol_prop),
             get_area_attribute(symbol_prop),
-            get_eccentricity_attribute(symbol_prop),
+            # get_eccentricity_attribute(symbol_prop),
             get_vertical_lines_attribute(symbol_prop),
             get_horizontal_lines_attribute(symbol_prop),
-            get_amount_holes_attribute(symbol_prop)
+            # после добавления числа эйлера число дырок - это то же самое
+            # get_amount_holes_attribute(symbol_prop),
+            get_euler_attribute(symbol_prop)
         ])
 
 
@@ -130,6 +174,8 @@ def main():
     symbol_attributes = dict()
     for symbol_prop, symbol in zip(props_alphabet, symbols):
         symbol_attributes[symbol] = extractor(symbol_prop)
+
+    print(symbol_attributes)
 
     image_to_recognize = imread("./alphabet.png")[:, :, :-1]
     binary_to_recognize = image_to_recognize.mean(2) > 0
