@@ -22,19 +22,39 @@ def get_horizontal_lines(symbol_prop):
 
 
 
-def get_amount_holes(symbol_prop):
-    symbol_shape = symbol_prop.image.shape
-    # not to count edges as holes, we crop our image
-    new_image = np.zeros((symbol_shape[0] - 2, symbol_shape[1] - 2))
-    new_image = symbol_prop.image[1:-1, 1:-1]
+# число эйлера для изображения = кол-во-компонент-связности - кол-во-дыр
+# кол-во-компонент-связности - кол-во частей самого foreground
+# в нашем случае кол-во-компонент-связности = 1 всегда (все наши символы связны)
+def get_euler_number(symbol_prop):
+    # это и есть кол-во-компонент-связности. В нашем случае = 1
+    # но мы все равно посчитали так (хардкод - плохо)
+    amount_foreground_components = label(symbol_prop.image).max()
+
+    inverted_image = np.logical_not(symbol_prop.image)
+    #labeled_background_components - все фоновые области символа. 
+    # Это и дырки внутри символа, и фоновые области по границам символа
+    labeled_background_components = label(inverted_image)
     
-    # then invert the image to count holes
-    new_image = np.logical_not(new_image)
-    labeled = label(new_image)
-    if labeled.size == 0:
-        return 0
-    amount_holes = labeled.max()
-    return amount_holes
+    # create mask with borders of the image
+    boundary_mask = np.zeros_like(symbol_prop.image, dtype=bool)
+    boundary_mask[0, :] = True
+    boundary_mask[-1, :] = True
+    boundary_mask[:, 0] = True
+    boundary_mask[:, -1] = True
+
+    # border_background_labels - номера меток фоновых областей на границе изображения
+    border_background_labels = np.unique(labeled_background_components[boundary_mask])
+
+    # далее надо посчитать только дырки внутри символов
+    amount_holes = 0
+    for label_number in range(1, labeled_background_components.max() + 1):
+        if label_number not in border_background_labels:
+            # если номера метки нет в списке граничных номеров меток - это дырка.
+            amount_holes += 1
+    
+    # находим число эйлера
+    euler_number = amount_foreground_components - amount_holes
+    return euler_number
 
 
 
@@ -76,30 +96,44 @@ def get_top_pixels_percent(symbol_prop):
 
 
 
-def classificator(prop):
-    holes = get_amount_holes(prop)
+# на сколько процентов от верхней границы символа находится y-координата центра масс
+# image top = 0%
+# image bottom = 100%
+# y_centroid between 0% and 100%
+def get_y_centroid_percent(symbol_prop):
+    _, centroid_y = symbol_prop.centroid_local
+    centroid_y /= symbol_prop.image.shape[0]
+    return centroid_y
 
-    if holes == 2:
+
+
+def classificator(prop):
+    euler_number = get_euler_number(prop)
+
+    if euler_number == -1:
         # B, 8
         vertical_lines = get_vertical_lines(prop)
         if vertical_lines > 0:
             return "B"
         else:
             return "8"
-    elif holes == 1:
+    elif euler_number == 0:
         # A, 0, D, P
         vertical_lines = get_vertical_lines(prop)
-        if vertical_lines > 3:
+        if vertical_lines > 0:
             # D, P
-            top_pixels_percent = get_top_pixels_percent(prop)
-            if top_pixels_percent > 0.6:
+            # я хотел посчитать через top_pixels_percent - не сработало
+            # top_pixels_percent = get_top_pixels_percent(prop)
+            # центр масс работает
+            y_centroid_percent = get_y_centroid_percent(prop)
+            if y_centroid_percent < 0.3:
                 return "P"
             else:
                 return "D"
         else:
             # A, 0
             eccentricity = get_eccentricity(prop)
-            if eccentricity < 0.4:
+            if eccentricity < 0.6:
                 return "0"
             else:
                 return "A"
