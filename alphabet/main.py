@@ -1,3 +1,4 @@
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage.io import imread
@@ -163,6 +164,16 @@ def classificator(prop):
 
 
 def main():
+    # folder to save images
+    parent_path = Path(__file__).parent
+    path = parent_path / "recognized"
+    path.mkdir(exist_ok=True)
+
+    # async matplotlib working not to show image every iteration
+    plt.ion()
+
+    plt.figure(figsize=(6, 8))
+
     image_symbols = imread("./symbols.png")[:, :, :-1]
     binary_symbols = image_symbols.mean(2) > 0
     labeled_symbols = label(binary_symbols)
@@ -170,7 +181,12 @@ def main():
 
     dict_result = dict()
 
-    for prop in props_symbols:
+    amount_props = len(props_symbols)
+    for i, prop in enumerate(props_symbols):
+        # progres bar
+        if i % 10 == 0:
+            print(f"Handled {i} symbols from {amount_props}")
+
         recognized_symbol = classificator(prop)
 
         if recognized_symbol not in dict_result:
@@ -178,6 +194,15 @@ def main():
         else:
             dict_result[recognized_symbol] += 1
 
+        # clear axis and other useless stuff
+        plt.cla()
+
+        plt.title(f"Recognized as {recognized_symbol}")
+        plt.imshow(prop.image)
+        if recognized_symbol == "/":
+            plt.savefig(path / f"{prop.label}_slash.png")
+        else:
+            plt.savefig(path / f"{prop.label}_{recognized_symbol}.png")
     print(dict_result)
 
 
