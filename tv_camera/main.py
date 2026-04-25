@@ -11,14 +11,14 @@ def main():
     news_corners = np.array([[18, 25], [432, 53], [435, 270], [39, 294]], dtype="f4")
 
     # for the first frame we need to calculate perspective-matrix, so we use the flag
-    is_fist_frame = True
+    is_first_frame = True
     frame_height = 0
     frame_width = 0
     matrix = 0
     frame_corners = 0
 
     # starting getting images from PC camera
-    camera = cv2.VideoCapture(1)
+    camera = cv2.VideoCapture(0)
     while camera.isOpened():
         # get another one frame from the camera
         is_frame_got, frame = camera.read()
@@ -37,14 +37,14 @@ def main():
         frame_transformed_gray = cv2.cvtColor(frame_transformed, cv2.COLOR_BGR2GRAY)
 
         # then make frame binary with threshold() function. It is our mask
-        mask = cv2.threshold(frame_transformed_gray, 1, 255, cv2.THRESH_BINARY)
+        _, mask = cv2.threshold(frame_transformed_gray, 1, 255, cv2.THRESH_BINARY)
 
         # invert the mask to use it on background
         mask_inverted = cv2.bitwise_not(mask)
 
+        # create new frame: we use masks to create background and foreground
         background = cv2.bitwise_and(news, news, mask=mask_inverted)
         foreground = cv2.bitwise_and(frame_transformed, frame_transformed, mask=mask)
-
         image_result = cv2.add(background, foreground)
 
         cv2.imshow("TV camera task", image_result)
