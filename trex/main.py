@@ -1,14 +1,10 @@
-import time
-import pyautogui
-import pyscreenshot
-import shlex
+import mss
 import numpy as np
-import keyboard
-import json
 from pathlib import Path
+import json
+import keyboard
+import time
 import matplotlib.pyplot as plt
-from skimage.io import imread
-import subprocess
 
 
 
@@ -21,27 +17,22 @@ def import_config_file():
 
 
 
-def save_obstacle_screenshot(game_window):
-    width = game_window["x_bottom_right"] - game_window["x_top_left"]
-    height = game_window["y_bottom_right"] - game_window["y_top_left"]
-    geometry = f"{game_window["x_top_left"]},{game_window["y_top_left"]} {width}x{height}"
-    command = f"grim -g {shlex.quote(geometry)} screen.png"
-    try:
-        subprocess.run(command, shell=True, check=True)
-    except subprocess.CalledProcessError as e:
-        print("Screenshot creating error:", e)
-
-
-
-def check_obstacle():
-    image = imread("./screen.png")
-    gray = np.sum(image, axis=2)
-    dark_pixels = np.sum(gray < 30)
-    return dark_pixels > 5000
+def check_obstacle(game_window):
+    dark_pixels = 0
+    with mss.MSS() as sct:
+        screen = sct.grab(game_window)
+        image = np.array(screen)
+        gray = np.sum(image, axis=2)
+        plt.imshow(gray)
+        plt.show()
+        dark_pixels = np.sum(gray > 80)
+        print(dark_pixels)
+    return dark_pixels > 10000
 
 
 
 def jump():
+    print("JUMP!")
     keyboard.send("space")
 
 
@@ -52,10 +43,9 @@ def main():
     if game_window is None:
         print("Error: you need to create config.json file with coordinates of game window")
         return
-    
     print("Game window configured from config.json:")
-    print(f"top_left: ({game_window["x_top_left"]}, {game_window["y_top_left"]})")
-    print(f"bottom_right: ({game_window["x_bottom_right"]}, {game_window["y_bottom_right"]})")
+    # print(f"top_left coordinates: {game_window["left"]}, {game_window["top"]}")
+    # print(f"width: {game_window["width"]} height: {game_window["height"]}")
     print()
     print("1 - start autorun")
     print("2 - stop autorun")
@@ -80,8 +70,7 @@ def main():
             break
 
         if is_running:
-            save_obstacle_screenshot(game_window)
-            if check_obstacle():
+            if check_obstacle(game_window):
                 jump()
                 time.sleep(0.05)
             time.sleep(0.02)
