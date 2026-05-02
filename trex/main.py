@@ -1,11 +1,15 @@
 import time
 import pyautogui
 import pyscreenshot
+import shlex
 import numpy as np
 import keyboard
 import json
 from pathlib import Path
 import matplotlib.pyplot as plt
+from skimage.io import imread
+import subprocess
+
 
 
 def import_config_file():
@@ -17,22 +21,22 @@ def import_config_file():
 
 
 
-def check_obstacle(game_window):
+def save_obstacle_screenshot(game_window):
     width = game_window["x_bottom_right"] - game_window["x_top_left"]
     height = game_window["y_bottom_right"] - game_window["y_top_left"]
-    BBOX_CHECK_TOP_LEFT_X = game_window["x_top_left"] + int(width * 0.15)
-    BBOX_CHECK_TOP_LEFT_Y = game_window["y_bottom_right"] - int(height * 0.3)
-    BBOX_CHECK_BOTTOM_RIGHT_X = game_window["x_top_left"] + int(width * 0.3)
-    BBOX_CHECK_BOTTOM_RIGHT_Y = game_window["y_bottom_right"]
+    geometry = f"{game_window["x_top_left"]},{game_window["y_top_left"]} {width}x{height}"
+    command = f"grim -g {shlex.quote(geometry)} screen.png"
+    try:
+        subprocess.run(command, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print("Screenshot creating error:", e)
 
-    screenshot = pyscreenshot.grab(bbox=(BBOX_CHECK_TOP_LEFT_X, BBOX_CHECK_TOP_LEFT_Y, BBOX_CHECK_BOTTOM_RIGHT_X, BBOX_CHECK_BOTTOM_RIGHT_Y))
-    array_screenshot = np.array(screenshot)
-    plt.imshow(array_screenshot)
-    plt.show()
-    gray = np.sum(array_screenshot, axis=2)
-    print(gray.shape)
+
+
+def check_obstacle():
+    image = imread("./screen.png")
+    gray = np.sum(image, axis=2)
     dark_pixels = np.sum(gray < 30)
-    print(dark_pixels)
     return dark_pixels > 5000
 
 
@@ -76,7 +80,8 @@ def main():
             break
 
         if is_running:
-            if check_obstacle(game_window):
+            save_obstacle_screenshot(game_window)
+            if check_obstacle():
                 jump()
                 time.sleep(0.05)
             time.sleep(0.02)
