@@ -18,16 +18,27 @@ def import_config_file():
 
 
 def check_obstacle(game_window):
+    obstacle_zone_left = game_window["left"] + int(game_window["width"]*0.15)
+    obstacle_zone_top = game_window["top"] + int(game_window["height"]*0.7)
+    obstacle_zone_height = int(game_window["height"]*0.3)
+    obstacle_zone_width = int(game_window["width"]*0.1)
+
+    obstacle_zone = {
+        "left": obstacle_zone_left,
+        "top": obstacle_zone_top,
+        "width": obstacle_zone_width,
+        "height": obstacle_zone_height
+    }
+
     dark_pixels = 0
     with mss.MSS() as sct:
-        screen = sct.grab(game_window)
+        screen = sct.grab(obstacle_zone)
         image = np.array(screen)
         gray = np.sum(image, axis=2)
-        plt.imshow(gray)
-        plt.show()
-        dark_pixels = np.sum(gray > 80)
+        print(gray.shape)
+        dark_pixels = np.sum(gray < 700)
         print(dark_pixels)
-    return dark_pixels > 10000
+    return dark_pixels > 100
 
 
 
@@ -43,9 +54,7 @@ def main():
     if game_window is None:
         print("Error: you need to create config.json file with coordinates of game window")
         return
-    print("Game window configured from config.json:")
-    # print(f"top_left coordinates: {game_window["left"]}, {game_window["top"]}")
-    # print(f"width: {game_window["width"]} height: {game_window["height"]}")
+    print("Game window configured from config.json")
     print()
     print("1 - start autorun")
     print("2 - stop autorun")
