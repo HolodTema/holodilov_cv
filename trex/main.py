@@ -17,11 +17,11 @@ def import_config_file():
 
 
 
-def check_obstacle(game_window):
-    obstacle_zone_left = game_window["left"] + int(game_window["width"]*0.15)
-    obstacle_zone_top = game_window["top"] + int(game_window["height"]*0.7)
-    obstacle_zone_height = int(game_window["height"]*0.3)
-    obstacle_zone_width = int(game_window["width"]*0.1)
+def check_obstacle(game_window, speed):
+    obstacle_zone_left = game_window["left"] + int(game_window["width"]*0.105)
+    obstacle_zone_top = game_window["top"] + int(game_window["height"]*0.68)
+    obstacle_zone_height = int(game_window["height"]*0.32)
+    obstacle_zone_width = int(game_window["width"]*0.012*speed)
 
     obstacle_zone = {
         "left": obstacle_zone_left,
@@ -35,15 +35,14 @@ def check_obstacle(game_window):
         screen = sct.grab(obstacle_zone)
         image = np.array(screen)
         gray = np.sum(image, axis=2)
-        print(gray.shape)
+        # print(gray.shape)
         dark_pixels = np.sum(gray < 700)
-        print(dark_pixels)
+        # print(dark_pixels)
     return dark_pixels > 100
 
 
 
 def jump():
-    print("JUMP!")
     keyboard.send("space")
 
 
@@ -62,6 +61,7 @@ def main():
     print()
 
     is_running = False
+    speed = 6
 
     while True:
         if keyboard.is_pressed('1'):
@@ -79,12 +79,13 @@ def main():
             break
 
         if is_running:
-            if check_obstacle(game_window):
+            if check_obstacle(game_window, speed):
                 jump()
-                time.sleep(0.05)
-            time.sleep(0.02)
+            time.sleep(0.016)
+            if speed < 13:
+                speed += 0.001
         else:
-            time.sleep(0.1)       
+            time.sleep(0.16)       
 
 
 
