@@ -8,6 +8,9 @@ from Overlay import Overlay
 
 
 class DinoAutoRunner:
+    MIN_SPEED = 6
+    MAX_SPEED = 13
+    ACCELERATION = 0.0006
 
     def __init__(self, config_filename):
         path = Path(__file__).parent / config_filename
@@ -24,22 +27,21 @@ class DinoAutoRunner:
         self.obstacle_zone = None
 
     def start_autorun(self):
+        self.is_running = True
+        self.speed = self.MIN_SPEED
+        self.background_brightness = 700
         self.overlay.start()
         self.overlay.draw_rect(self.game_window)
         self._update_obstacle_zone()
         self._draw_obstacle_zone()
-
-        self.is_running = True
-        self.speed = 6
-        self.background_brightness = 700
         while self.is_running:
             self._take_screenshot()
             self._update_obstacle_zone()
             self._handle_obstacle()
             if int(time.time()) % 3 == 0:
                 self._update_background_brightness()
-            if self.speed < 15:
-                self.speed += 0.002
+            if self.speed < self.MAX_SPEED:
+                self.speed += self.ACCELERATION
             time.sleep(0.01)
 
     def stop_autorun(self):
@@ -53,14 +55,15 @@ class DinoAutoRunner:
         with mss.MSS() as sct:
             image = np.array(sct.grab(self.game_window))[:, :, :-1]
             self.image_gray = np.sum(image, axis=2)
-            self.image_binary = (self.image_gray > 300)
+            self.image_binary = (self.image_gray < 600)
 
     def _update_obstacle_zone(self):
+        speed_delta = int(self.game_window["width"] * 0.01 * self.speed)
         self.obstacle_zone = dict()
-        self.obstacle_zone["left"] = int(self.game_window["width"]*0.115)
+        self.obstacle_zone["left"] = int(self.game_window["width"]*0.06) + speed_delta
         self.obstacle_zone["top"] =  int(self.game_window["height"]*0.67)
-        self.obstacle_zone["width"] = int(self.game_window["width"]*0.17)
-        self.obstacle_zone["height"] = int(self.game_window["height"]*0.325)
+        self.obstacle_zone["width"] = int(self.game_window["width"]*0.02) + speed_delta
+        self.obstacle_zone["height"] = int(self.game_window["height"]*0.32)
 
     def _draw_obstacle_zone(self):
         obstacle_zone_absolute = dict()
@@ -88,10 +91,17 @@ class DinoAutoRunner:
     def _handle_obstacle(self):
         bottom_right_x = self.obstacle_zone["left"]+self.obstacle_zone["width"]
         bottom_right_y = self.obstacle_zone["top"]+self.obstacle_zone["height"]
-        image_obstacle_zone = self.image_gray[self.obstacle_zone["top"]: bottom_right_y, self.obstacle_zone["left"]:bottom_right_x]
-        if np.sum(image_obstacle_zone) > 1:
-            #if np.sum(image_obstacle_zone[0, :] == 0) and np.sum(image_obstacle_zone[-1, :] == 0):
-            self._jump()
+        image_obstacle_zone = self.image_binary[self.obstacle_zone["top"]: bottom_right_y, self.obstacle_zone["left"]:bottom_right_x]
+
+        amount_pixels = self.obstacle_zone["width"] * self.obstacle_zone["height"]
+        amount_pixels_bottom_third = self.obstacle_zone["width"] * int(self.obstacle_zone["height"]/3)
+        percent_dark_pixels = np.sum(image_obstacle_zone) / amount_pixels
+        percent_dark_pixels_bottom_third = np.sum(image_obstacle_zone[int(self.obstacle_zone["height"]/3*2):, :]) / amount_pixels_bottom_third
+        if percent_dark_pixels > 0.1:
+            if percent_dark_pixels_bottom_third < 0.1:
+                self._duck()
+            else:
+                self._jump()
         # dark_pixels = np.sum(abs(image_obstacle_zone - self.background_brightness) > 382)
         # amount_all_pixels = self.obstacle_zone["width"] * self.obstacle_zone["height"]
         # percent_dark_pixels = dark_pixels / amount_all_pixels
