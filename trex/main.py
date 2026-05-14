@@ -7,144 +7,107 @@ import time
 from Overlay import Overlay
 
 
+class DinoAutoRunner:
 
-def import_config_file():
-    path = Path(__file__).parent / "config.json"
-    if not(path.exists()):
-        return None
-    with path.open("r") as f:
-        return json.load(f)
+    def __init__(self, config_filename):
+        path = Path(__file__).parent / config_filename
+        if not (path.exists()):
+            raise RuntimeError("Error: unable open config file.")
+        with path.open("r") as f:
+            self.game_window = json.load(f)
 
+        self.overlay = Overlay()
+        self.is_running = False
+        self.speed = None
+        self.background_brightness = None
+        self.image_gray = None
+        self.obstacle_zone = None
 
-def draw_game_frame_overlay(overlay, game_window):
-    x_top_left = game_window["left"] 
-    y_top_left = game_window["top"] 
-    x_bottom_right = x_top_left + game_window["width"] 
-    y_bottom_right = y_top_left + game_window["height"] 
-    overlay.draw_rect(x_top_left, y_top_left, x_bottom_right, y_bottom_right, outline="red", width=2)
+    def start_autorun(self):
+        self.overlay.start()
+        self.overlay.draw_rect(self.game_window)
+        self._update_obstacle_zone()
+        self._draw_obstacle_zone()
 
-
-def draw_obstacle_check_zone_overlay(overlay, top_left_x, top_left_y, bottom_right_x, bottom_right_y):
-    overlay.draw_rect(top_left_x, top_left_y, bottom_right_x, bottom_right_y, outline="green", width=2)
-
-
-
-def take_screenshot(game_window):
-    with mss.MSS() as sct:
-        image = np.array(sct.grab(game_window))[:, :, :-1]
-        image_gray = np.sum(image, axis=2)
-        return image_gray
-
-
-
-def get_background_brightness(image_gray):
-    background_zone_width = int(image_gray.shape[0]*0.02)
-    background_zone_height = int(image_gray.shape[1]*0.02)
-    background_zone = image_gray[:background_zone_width, :background_zone_height]
-    return np.median(background_zone)
-
-
-
-def check_obstacle(overlay, game_window, image_gray, speed, background_brightness):
-    width = image_gray.shape[1]
-    height = image_gray.shape[0]
-    obstacle_zone_left = int(width*0.11)
-    obstacle_zone_top = int(height*0.67)
-    obstacle_zone_height = int(height*0.325)
-    obstacle_zone_width = int(width*0.17)
-    obstacle_zone_bottom = obstacle_zone_top + obstacle_zone_height
-    obstacle_zone_right = obstacle_zone_left + obstacle_zone_width
-
-    obstacle_zone = image_gray[obstacle_zone_top:obstacle_zone_bottom, obstacle_zone_left:obstacle_zone_right]
-    draw_obstacle_check_zone_overlay(overlay, obstacle_zone_left, obstacle_zone_top, obstacle_zone_right, obstacle_zone_bottom)
-    # threshold = background_brightness - 50
-    dark_pixels = np.sum(abs(obstacle_zone - background_brightness) > 382)
-    amount_all_pixels = obstacle_zone_width * obstacle_zone_height
-    percent_dark_pixels = dark_pixels / amount_all_pixels
-    if percent_dark_pixels < 0.05:
-        return None
-    return "jump"
-    center_row = obstacle_zone.shape[0] // 2
-    gray_top = obstacle_zone[:center_row, :]
-    gray_bottom = obstacle_zone[center_row:, :]
-
-    dark_pixels_top = np.sum(abs(gray_top - background_brightness) > 382)
-    dark_pixels_bottom = np.sum(abs(gray_bottom - background_brightness) > 382)
-
-    if dark_pixels_top > dark_pixels_bottom * 3:
-        return "duck"
-    else:
-        return "jump"
-
-
-
-def jump():
-    keyboard.send("up")
-
-
-
-def duck():
-    keyboard.send("down")
-    time.sleep(0.3)
-    keyboard.release("down")
-
-
-    
-def main():
-    overlay = Overlay()
-    overlay.start()
-
-    game_window = import_config_file()
-    draw_game_frame_overlay(overlay, game_window)
-
-    print("T-REX autorunner (by python_hackershaa)")
-    if game_window is None:
-        print("Error: you need to create config.json file with coordinates of game window")
-        return
-    print("Game window configured from config.json")
-    print()
-    print("1 - start autorun")
-    print("2 - stop autorun")
-    print("3 - quit")
-    print()
-
-    is_running = False
-    speed = 6
-    background_brightness = 700
-
-    while True:
-        if keyboard.is_pressed('1') and not(is_running):
-            is_running = True
-            print("autorun started")
-            time.sleep(0.2)
-        if keyboard.is_pressed('2') and is_running:
-            is_running = False
-            print("autorun stopped")
-            time.sleep(0.2)
-        if keyboard.is_pressed('3'):
-            print("quit")
-            break
-
-        if is_running:
-            overlay.clear()
-            image_gray = take_screenshot(game_window)
-            draw_game_frame_overlay(overlay, game_window)
+        self.is_running = True
+        self.speed = 6
+        self.background_brightness = 700
+        while self.is_running:
+            self._take_screenshot()
+            self._update_obstacle_zone()
+            self._handle_obstacle()
             if int(time.time()) % 3 == 0:
-                background_brightness = get_background_brightness(image_gray)
-
-            action = check_obstacle(overlay, image_gray, speed, background_brightness)
-            if action == "jump":
-                jump()
-            elif action == "duck":
-                duck()
-
-            if speed < 15:
-                speed += 0.002
-            
+                self._update_background_brightness()
+            if self.speed < 15:
+                self.speed += 0.002
             time.sleep(0.01)
-        else:
-            time.sleep(0.16)  
-    overlay.stop()
+
+    def stop_autorun(self):
+        self.overlay.stop()
+        self.is_running = False
+
+    def is_running(self):
+        return self.is_running
+
+    def _take_screenshot(self):
+        with mss.MSS() as sct:
+            image = np.array(sct.grab(self.game_window))[:, :, :-1]
+            self.image_gray = np.sum(image, axis=2)
+            self.image_binary = (self.image_gray > 300)
+
+    def _update_obstacle_zone(self):
+        self.obstacle_zone = dict()
+        self.obstacle_zone["left"] = int(self.game_window["width"]*0.115)
+        self.obstacle_zone["top"] =  int(self.game_window["height"]*0.67)
+        self.obstacle_zone["width"] = int(self.game_window["width"]*0.17)
+        self.obstacle_zone["height"] = int(self.game_window["height"]*0.325)
+
+    def _draw_obstacle_zone(self):
+        obstacle_zone_absolute = dict()
+        obstacle_zone_absolute["left"] = self.game_window["left"] + self.obstacle_zone["left"]
+        obstacle_zone_absolute["top"] = self.game_window["top"] + self.obstacle_zone["top"]
+        obstacle_zone_absolute["width"] = self.obstacle_zone["width"]
+        obstacle_zone_absolute["height"] = self.obstacle_zone["height"]
+        self.overlay.draw_rect(obstacle_zone_absolute)
+
+
+    def _update_background_brightness(self):
+        background_zone_width = int(self.image_gray.shape[0] * 0.02)
+        background_zone_height = int(self.image_gray.shape[1] * 0.02)
+        background_zone = self.image_gray[:background_zone_width, :background_zone_height]
+        self.background_brightness = np.median(background_zone)
+
+    def _jump(self):
+        keyboard.send("up")
+
+    def _duck(self):
+        keyboard.send("down")
+        time.sleep(0.3)
+        keyboard.release("down")
+
+    def _handle_obstacle(self):
+        bottom_right_x = self.obstacle_zone["left"]+self.obstacle_zone["width"]
+        bottom_right_y = self.obstacle_zone["top"]+self.obstacle_zone["height"]
+        image_obstacle_zone = self.image_gray[self.obstacle_zone["top"]: bottom_right_y, self.obstacle_zone["left"]:bottom_right_x]
+        if np.sum(image_obstacle_zone) > 1:
+            #if np.sum(image_obstacle_zone[0, :] == 0) and np.sum(image_obstacle_zone[-1, :] == 0):
+            self._jump()
+        # dark_pixels = np.sum(abs(image_obstacle_zone - self.background_brightness) > 382)
+        # amount_all_pixels = self.obstacle_zone["width"] * self.obstacle_zone["height"]
+        # percent_dark_pixels = dark_pixels / amount_all_pixels
+        # if percent_dark_pixels >= 0.05:
+        #     self._jump()
+
+
+def main():
+    print("T-REX auto runner (by python_hackersha)")
+    auto_runner = DinoAutoRunner("config.json")
+    print("Press 1 to start autorun")
+    while True:
+        if keyboard.is_pressed('1') and not(auto_runner.is_running):
+            print("autorun started")
+            auto_runner.start_autorun()
+
 
 
 

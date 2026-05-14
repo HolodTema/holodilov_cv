@@ -70,8 +70,17 @@ class Overlay:
             self.thread = None
 
 
-    def draw_rect(self, top_left_x, top_left_y, bottom_right_x, bottom_right_y, width=2, outline='red'):
-        self.canvas.create_rectangle(top_left_x, top_left_y, bottom_right_x, bottom_right_y, outline=outline, width=width)
+    def draw_rect(self, top_left_x, top_left_y, width, height, stroke_width=2, outline='red'):
+        bottom_right_x = top_left_x + width
+        bottom_right_y = top_left_y + height
+        self.canvas.create_rectangle(top_left_x, top_left_y, bottom_right_x, bottom_right_y, outline=outline, width=stroke_width)
+
+    def draw_rect(self, dict_window, stroke_width=2, outline='red'):
+        top_left_x = dict_window["left"] - stroke_width
+        top_left_y = dict_window["top"] - stroke_width
+        bottom_right_x = top_left_x + dict_window["width"] + stroke_width
+        bottom_right_y = top_left_y + dict_window["height"] + stroke_width
+        self.canvas.create_rectangle(top_left_x, top_left_y, bottom_right_x, bottom_right_y, outline=outline, width=stroke_width)
 
 
     def clear(self):
