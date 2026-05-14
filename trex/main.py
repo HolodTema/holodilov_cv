@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from Overlay import Overlay
 from ObstacleType import ObstacleType
 from numpy_util import *
+from pynput.keyboard import Controller, Key
+from pyKey.windows import press
 
 
 class DinoAutoRunner:
@@ -28,8 +30,7 @@ class DinoAutoRunner:
         self.recognize_forefront = True
         self.speed = None
         # self.frames_since_jump = None
-        self.background_brightness = None
-        self.image_gray = None
+        self.image_binary = None
         self.dino_legs_zone = None
         self.obstacle_zone = None
         self.forefront_zone = None
@@ -40,7 +41,6 @@ class DinoAutoRunner:
         self.is_jumping = False
         # self.frames_since_jump = 0
         self.speed = self.MIN_SPEED
-        self.background_brightness = 700
         self.obstacle_queue = list()
         self.overlay.start()
         self.overlay.draw_rect(self.game_window)
@@ -58,8 +58,6 @@ class DinoAutoRunner:
             if not self.is_jumping:
                 keyboard.release("up")
             self._handle_obstacle()
-            if int(time.time()) % 3 == 0:
-                self._update_background_brightness()
             if self.speed < self.MAX_SPEED:
                 self.speed += self.ACCELERATION
             # self.frames_since_jump += 1
@@ -134,12 +132,6 @@ class DinoAutoRunner:
         forefront_zone_absolute["width"] = self.forefront_zone["width"]*1.05
         forefront_zone_absolute["height"] = self.forefront_zone["height"]*1.05
         self.overlay.draw_rect(forefront_zone_absolute)
-
-    def _update_background_brightness(self):
-        background_zone_width = int(self.image_gray.shape[0] * 0.02)
-        background_zone_height = int(self.image_gray.shape[1] * 0.02)
-        background_zone = self.image_gray[:background_zone_width, :background_zone_height]
-        self.background_brightness = np.median(background_zone)
 
     def _update_is_jumping(self):
         bottom_right_x = self.dino_legs_zone["left"] + self.dino_legs_zone["width"]
@@ -225,7 +217,17 @@ def main():
             auto_runner.start_autorun()
 
 
+def test():
+    print("test will be in 5 sec")
+    time.sleep(5.0)
+
+    keyboard_controller = Controller()
+
+    keyboard_controller.press(Key.up)
+    time.sleep(0.04)
+    keyboard_controller.release(Key.up)
+
 if __name__ == "__main__":
-    main()
+    test()
 
 
