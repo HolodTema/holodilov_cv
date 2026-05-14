@@ -24,18 +24,21 @@ class DinoAutoRunner:
 
         self.overlay = Overlay()
         self.is_running = False
+        self.is_jumping = False
         self.recognize_forefront = True
         self.speed = None
-        self.frames_since_jump = None
+        # self.frames_since_jump = None
         self.background_brightness = None
         self.image_gray = None
+        self.dino_legs_zone = None
         self.obstacle_zone = None
         self.forefront_zone = None
         self.obstacle_queue = None
 
     def start_autorun(self):
         self.is_running = True
-        self.frames_since_jump = 0
+        self.is_jumping = False
+        # self.frames_since_jump = 0
         self.speed = self.MIN_SPEED
         self.background_brightness = 700
         self.obstacle_queue = list()
@@ -43,21 +46,23 @@ class DinoAutoRunner:
         self.overlay.draw_rect(self.game_window)
         self._update_obstacle_zone()
         self._update_forefront_zone()
+        self._update_dino_legs_zone()
+        self._draw_dino_legs_zone()
         self._draw_obstacle_zone()
         self._draw_forefront_zone()
         while self.is_running:
             self._take_screenshot()
             self._handle_forefront()
             self._update_obstacle_zone()
+            self._update_is_jumping()
+            if not self.is_jumping:
+                keyboard.release("up")
             self._handle_obstacle()
             if int(time.time()) % 3 == 0:
                 self._update_background_brightness()
             if self.speed < self.MAX_SPEED:
                 self.speed += self.ACCELERATION
-            if self.frames_since_jump == 50:
-                print("long jump release")
-                keyboard.release("up")
-            self.frames_since_jump += 1
+            # self.frames_since_jump += 1
             time.sleep(0.01)
 
     def stop_autorun(self):
@@ -72,6 +77,13 @@ class DinoAutoRunner:
             image = np.array(sct.grab(self.game_window))[:, :, :-1]
             self.image_gray = np.sum(image, axis=2)
             self.image_binary = (self.image_gray < 600)
+
+    def _update_dino_legs_zone(self):
+        self.dino_legs_zone = dict()
+        self.dino_legs_zone["left"] = int(self.game_window["width"] * 0.06)
+        self.dino_legs_zone["top"] = int(self.game_window["height"] * 0.93)
+        self.dino_legs_zone["width"] = int(self.game_window["width"] * 0.02)
+        self.dino_legs_zone["height"] = int(self.game_window["height"] * 0.03)
 
     def _update_obstacle_zone(self):
         obstacle_type_coefficient = 0.02
@@ -99,6 +111,14 @@ class DinoAutoRunner:
         self.forefront_zone["width"] = int(self.game_window["width"] * 0.12)
         self.forefront_zone["height"] = int(self.game_window["height"] * 0.29)
 
+    def _draw_dino_legs_zone(self):
+        dino_legs_zone_absolute = dict()
+        dino_legs_zone_absolute["left"] = self.game_window["left"] + self.dino_legs_zone["left"]
+        dino_legs_zone_absolute["top"] = self.game_window["top"] + self.dino_legs_zone["top"]
+        dino_legs_zone_absolute["width"] = self.dino_legs_zone["width"] * 1.05
+        dino_legs_zone_absolute["height"] = self.dino_legs_zone["height"] * 1.05
+        self.overlay.draw_rect(dino_legs_zone_absolute)
+
     def _draw_obstacle_zone(self):
         obstacle_zone_absolute = dict()
         obstacle_zone_absolute["left"] = self.game_window["left"] + self.obstacle_zone["left"]
@@ -121,15 +141,21 @@ class DinoAutoRunner:
         background_zone = self.image_gray[:background_zone_width, :background_zone_height]
         self.background_brightness = np.median(background_zone)
 
+    def _update_is_jumping(self):
+        bottom_right_x = self.dino_legs_zone["left"] + self.dino_legs_zone["width"]
+        bottom_right_y = self.dino_legs_zone["top"] + self.dino_legs_zone["height"]
+        image_dino_legs = self.image_binary[self.dino_legs_zone["top"]:bottom_right_y, self.dino_legs_zone["left"]:bottom_right_x]
+        self.is_jumping = np.sum(image_dino_legs) / (self.dino_legs_zone["width"]*self.dino_legs_zone["height"]) < 0.6
+
     def _long_jump(self):
-        if self.frames_since_jump >= 66:
-            print("long jump press")
-            self.frames_since_jump = 0
+        if not self.is_jumping:
+            print("long jump")
             keyboard.press("up")
 
     def _short_jump(self):
-        keyboard.send("up")
-
+        if not self.is_jumping:
+            print("short jump")
+            keyboard.send("up")
 
     def _duck(self):
         keyboard.press("down")
