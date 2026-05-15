@@ -41,9 +41,9 @@ class DinoAutoRunner:
         self.speed = self.MIN_SPEED
         self.obstacle_queue = list()
         self.forefront_zone = Zone(
-            left=int(self.game_window.width * 0.82),
+            left=int(self.game_window.width * 0.78),
             top=int(self.game_window.height * 0.7),
-            width=int(self.game_window.width * 0.12),
+            width=int(self.game_window.width * 0.17),
             height=int(self.game_window.height * 0.29)
         )
 
@@ -66,20 +66,24 @@ class DinoAutoRunner:
         )
 
         prev_time = time.time()
+        canvas_ids = list()
         while self.is_running:
-            now_time = time.time()
-            delta_time = now_time - prev_time
-            if delta_time < 1/60:
-                time.sleep(1/60 - delta_time)
-            prev_time = time.time()
+            for canvas_id in canvas_ids:
+                self.overlay.clear_by_canvas_id(canvas_id)
+            # now_time = time.time()
+            # delta_time = now_time - prev_time
+            # if delta_time < 1/60:
+            #     time.sleep(1/60 - delta_time)
+            # prev_time = time.time()
 
             self._take_screenshot()
             self._handle_forefront()
-            self._handle_obstacle_queue()
+            canvas_ids = self._handle_obstacle_queue()
             if self.is_jumping and time.time() >= self.jump_end_time:
                 self.is_jumping = False
             if self.speed < self.MAX_SPEED:
                 self.speed += self.ACCELERATION
+            time.sleep(0.016)
 
     def stop_autorun(self):
         self.overlay.stop()
@@ -95,6 +99,7 @@ class DinoAutoRunner:
         if self.is_jumping:
             return
         keyboard.send("up")
+        print("JUMP")
         self.is_jumping = True
         jump_duration = self._get_jump_duration()
         self.jump_end_time = time.time() + jump_duration
@@ -125,7 +130,7 @@ class DinoAutoRunner:
         percent_dark_pixels_left = np.sum(image_left) / get_amount_pixels(image_left)
         percent_dark_pixels_right = np.sum(image_right) / get_amount_pixels(image_right)
 
-        if percent_dark_pixels_right < 0.1 and percent_dark_pixels_left < 0.1:
+        if percent_dark_pixels_right < 0.05 and percent_dark_pixels_left < 0.05:
             if self.recognize_forefront:
                 zone_inner = Zone(
                     left=self.forefront_zone.left + horizontal_padding,
@@ -148,22 +153,37 @@ class DinoAutoRunner:
             self.recognize_forefront = True
 
     def _handle_obstacle_queue(self):
+        canvas_ids = list()
         for i in range(len(self.obstacle_queue)):
             self.obstacle_queue[i].move_with_speed(self.speed)
+            zone_to_draw = Zone(
+                left=self.obstacle_queue[i].right_border,
+                top=self.game_window.height + 20,
+                width=2,
+                height=2
+            )
+            canvas_ids += [self.overlay.draw_rect_from_zone(zone_to_draw.get_absolute_zone_from_parent_zone(self.game_window), outline="green")]
 
-        self.obstacle_queue = [obstacle for obstacle in self.obstacle_queue if obstacle.right_border < self.DINO_RIGHT]
+        # self.obstacle_queue = [obstacle for obstacle in self.obstacle_queue if obstacle.right_border < self.DINO_LEFT]
 
-        if len(self.obstacle_queue) == 0 or self.is_jumping:
-            return
+        # if len(self.obstacle_queue) == 0 or self.is_jumping:
+        if len(self.obstacle_queue) == 0:
+            # print("queue is empty, return")
+            return canvas_ids
 
         first_obstacle: Obstacle = self.obstacle_queue[0]
-        # if self.DINO_RIGHT + self.jump_offset >= first_obstacle.left_border:
-        #     self._jump()
-        #     self.obstacle_queue.pop(0)
+        if first_obstacle.is_tall:
+            coeff = -0.1
+        else:
+            coeff = -0.07
 
-        if self.speed*(self._get_jump_duration()) >= (first_obstacle.right_border-self.DINO_LEFT):
+        if self.speed*((self._get_jump_duration())*60+coeff) >= (first_obstacle.right_border-self.DINO_LEFT):
             self._jump()
             self.obstacle_queue.pop(0)
+        else:
+            pass
+            # print("I see I cannot jump")
+        return canvas_ids
 
 
 def main():
