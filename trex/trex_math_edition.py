@@ -23,34 +23,63 @@ class DinoAutoRunner:
             self.game_window.set_from_dict(json.load(f))
 
         self.overlay = Overlay()
-        self.is_running = False
-        self.recognize_forefront = True
+        self.is_running = None
+        self.recognize_forefront = None
         self.speed = None
+        self.DINO_LEFT = int(self.game_window.width * 0.063)
+        self.DINO_RIGHT = int(self.game_window.width * 0.135)
+        self.is_jumping = False
+        self.jump_end_time = 0
         self.forefront_zone = None
         self.obstacle_queue = None
         self.image_binary = None
 
     def start_autorun(self):
         self.is_running = True
+        self.is_jumping = False
+        self.recognize_forefront = True
         self.speed = self.MIN_SPEED
         self.obstacle_queue = list()
         self.forefront_zone = Zone(
-            left=int(self.game_window["width"] * 0.82),
-            top=int(self.game_window["height"] * 0.7),
-            width=int(self.game_window["width"] * 0.12),
-            height=int(self.game_window["height"] * 0.29)
+            left=int(self.game_window.width * 0.82),
+            top=int(self.game_window.height * 0.7),
+            width=int(self.game_window.width * 0.12),
+            height=int(self.game_window.height * 0.29)
         )
 
         self.overlay.start()
         self.overlay.draw_rect_from_zone(self.game_window)
-        self.overlay.draw_rect_from_zone(self.forefront_zone)
+        self.overlay.draw_rect_from_zone(self.forefront_zone.get_absolute_zone_from_parent_zone(self.game_window))
 
+        self.overlay.draw_rect(
+            top_left_x=self.game_window.left+self.DINO_LEFT,
+            top_left_y=int(self.game_window.top+self.game_window.height*0.8),
+            width=1,
+            height=1
+        )
+
+        self.overlay.draw_rect(
+            top_left_x=self.game_window.left + self.DINO_RIGHT,
+            top_left_y=int(self.game_window.top + self.game_window.height * 0.8),
+            width=1,
+            height=1
+        )
+
+        prev_time = time.time()
         while self.is_running:
+            now_time = time.time()
+            delta_time = now_time - prev_time
+            if delta_time < 1/60:
+                time.sleep(1/60 - delta_time)
+            prev_time = time.time()
+
             self._take_screenshot()
             self._handle_forefront()
+            self._handle_obstacle_queue()
+            if self.is_jumping and time.time() >= self.jump_end_time:
+                self.is_jumping = False
             if self.speed < self.MAX_SPEED:
                 self.speed += self.ACCELERATION
-            time.sleep(0.0166)
 
     def stop_autorun(self):
         self.overlay.stop()
@@ -58,19 +87,25 @@ class DinoAutoRunner:
 
     def _take_screenshot(self):
         with mss.MSS() as sct:
-            image = np.array(sct.grab(self.game_window))[:, :, :-1]
+            image = np.array(sct.grab(self.game_window.convert_to_dict()))[:, :, :-1]
             image_gray = np.sum(image, axis=2)
             self.image_binary = (image_gray < 600)
 
     def _jump(self):
+        if self.is_jumping:
+            return
         keyboard.send("up")
+        self.is_jumping = True
+        jump_duration = self._get_jump_duration()
+        self.jump_end_time = time.time() + jump_duration
 
     def _duck(self):
         pass
 
-    def _handle_forefront(self):
-        image_forefront = self.forefront_zone.crop_np_image(self.image_binary)
+    def _get_jump_duration(self):
+        return (20.0 - self.speed / 5.0) / 36.0
 
+    def _handle_forefront(self):
         horizontal_padding = int(self.forefront_zone.width * 0.1)
         zone_forefront_left = Zone(
             left=self.forefront_zone.left,
@@ -79,7 +114,7 @@ class DinoAutoRunner:
             height=self.forefront_zone.height
         )
         zone_forefront_right = Zone(
-            left=self.forefront_zone.width-horizontal_padding,
+            left=self.forefront_zone.get_bottom_right_x()-horizontal_padding,
             top=self.forefront_zone.top,
             width=horizontal_padding,
             height=self.forefront_zone.height
@@ -93,23 +128,42 @@ class DinoAutoRunner:
         if percent_dark_pixels_right < 0.1 and percent_dark_pixels_left < 0.1:
             if self.recognize_forefront:
                 zone_inner = Zone(
-                    left=self.forefront_zone + horizontal_padding,
+                    left=self.forefront_zone.left + horizontal_padding,
                     top=self.forefront_zone.top,
                     width=self.forefront_zone.width - horizontal_padding,
                     height=self.forefront_zone.height
                 )
                 image_inner = zone_inner.crop_np_image(self.image_binary)
                 percent_dark_pixels_inner = np.sum(image_inner) / get_amount_pixels(image_inner)
-                if percent_dark_pixels_inner > 0.1:
+                if percent_dark_pixels_inner > 0.05:
                     obstacle = Obstacle(
                         game_window=self.game_window,
                         zone=zone_inner,
                         image=image_inner
                     )
+                    print("Obstacle isTall = ", obstacle.is_tall, "\tisWide = ", obstacle.is_wide)
                     self.obstacle_queue += [obstacle]
                     self.recognize_forefront = False
         else:
             self.recognize_forefront = True
+
+    def _handle_obstacle_queue(self):
+        for i in range(len(self.obstacle_queue)):
+            self.obstacle_queue[i].move_with_speed(self.speed)
+
+        self.obstacle_queue = [obstacle for obstacle in self.obstacle_queue if obstacle.right_border < self.DINO_RIGHT]
+
+        if len(self.obstacle_queue) == 0 or self.is_jumping:
+            return
+
+        first_obstacle: Obstacle = self.obstacle_queue[0]
+        # if self.DINO_RIGHT + self.jump_offset >= first_obstacle.left_border:
+        #     self._jump()
+        #     self.obstacle_queue.pop(0)
+
+        if self.speed*(self._get_jump_duration()) >= (first_obstacle.right_border-self.DINO_LEFT):
+            self._jump()
+            self.obstacle_queue.pop(0)
 
 
 def main():

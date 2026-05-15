@@ -26,6 +26,14 @@ class Zone:
         self.width = dictionary["width"]
         self.height = dictionary["height"]
 
+    def convert_to_dict(self):
+        result = dict()
+        result["left"] = self.left
+        result["top"] = self.top
+        result["width"] = self.width
+        result["height"] = self.height
+        return result
+
     def crop_np_image(self, image: np.ndarray):
         bottom_right_x = self.get_bottom_right_x()
         bottom_right_y = self.get_bottom_right_y()
