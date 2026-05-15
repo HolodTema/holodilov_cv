@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 import time
 from Overlay import Overlay
-from ObstacleType import ObstacleType
+from Obstacle import ObstacleType
 from numpy_util import *
 import keyboard
 
@@ -13,8 +13,6 @@ class DinoAutoRunner:
     MAX_SPEED = 13
     ACCELERATION = 0.0003
 
-    START_JUMP_TIME = 0.52
-    JUMP_TIME_ACCELERATION = 0.000001667
     def __init__(self, config_filename):
         path = Path(__file__).parent / config_filename
         if not (path.exists()):
@@ -26,7 +24,6 @@ class DinoAutoRunner:
         self.is_running = False
         self.recognize_forefront = True
         self.speed = None
-        self.prev_jump_time = None
         self.prev_duck_time = None
         self.image_binary = None
         self.obstacle_zone = None
@@ -34,14 +31,13 @@ class DinoAutoRunner:
         self.game_over_zone = None
         self.game_over_pixels = None
         self.obstacle_queue = None
+        self.obstacle_handled = None
         self.canvas_obstacle_zone_id = None
-        self.jump_time = None
 
     def start_autorun(self):
         self.is_running = True
-        self.prev_jump_time = time.time()
+        self.obstacle_handled = False
         self.prev_duck_time = time.time()
-        self.jump_time = self.START_JUMP_TIME
         self.speed = self.MIN_SPEED
         self.obstacle_queue = list()
         self.overlay.start()
@@ -60,12 +56,11 @@ class DinoAutoRunner:
             self.canvas_obstacle_zone_id = self._draw_obstacle_zone()
             if self.speed < self.MAX_SPEED:
                 self.speed += self.ACCELERATION
-                self.jump_time -= self.JUMP_TIME_ACCELERATION
-            game_over_pixels_now = self._get_game_over_pixels()
-            if game_over_pixels_now == self.game_over_pixels and game_over_pixels_now > 30:
-                print("GAME OVER!")
-                break
-            self.game_over_pixels = game_over_pixels_now
+            # game_over_pixels_now = self._get_game_over_pixels()
+            # if game_over_pixels_now == self.game_over_pixels and game_over_pixels_now > 30:
+            #     print("GAME OVER!")
+            #     break
+            # self.game_over_pixels = game_over_pixels_now
             time.sleep(0.005)
 
     def stop_autorun(self):
@@ -95,7 +90,7 @@ class DinoAutoRunner:
 
         speed_delta = int(0.019 * self.speed)
         self.obstacle_zone = dict()
-        self.obstacle_zone["left"] = int(self.game_window["width"] * (0.13 + speed_delta))
+        self.obstacle_zone["left"] = int(self.game_window["width"] * (0.14 + speed_delta))
         self.obstacle_zone["top"] = int(self.game_window["height"] * 0.7)
         self.obstacle_zone["width"] = int(self.game_window["width"] * obstacle_type_coefficient)
         self.obstacle_zone["height"] = int(self.game_window["height"] * 0.29)
@@ -123,8 +118,8 @@ class DinoAutoRunner:
         return self.overlay.draw_rect_from_dict(obstacle_zone_absolute)
 
     def _get_game_over_pixels(self):
-        bottom_right_x = self.game_over_zone["left"] = self.game_over_zone["width"]
-        bottom_right_y = self.game_over_zone["top"] = self.game_over_zone["height"]
+        bottom_right_x = self.game_over_zone["left"] + self.game_over_zone["width"]
+        bottom_right_y = self.game_over_zone["top"] + self.game_over_zone["height"]
         image_game_over = self.image_binary[self.game_over_zone["top"]:bottom_right_y, self.game_over_zone["left"]:bottom_right_x]
         return np.sum(image_game_over)
 
@@ -145,19 +140,12 @@ class DinoAutoRunner:
         self.overlay.draw_rect_from_dict(game_over_zone_absolute)
 
     def _jump(self):
-        curr_time = time.time()
-        if curr_time - self.prev_jump_time >= self.jump_time:
-            self.prev_jump_time = curr_time
+        if not self.obstacle_handled:
+            self.obstacle_handled = True
             keyboard.send("up")
             print("jump sent")
             if len(self.obstacle_queue) > 0:
-                ob = self.obstacle_queue.pop(0)
-                print("jump ob: ", ob)
-        elif curr_time - self.prev_jump_time >= (self.jump_time / 1.1):
-            if keyboard.is_pressed("down"):
-                keyboard.release("down")
-        elif curr_time - self.prev_jump_time >= (self.jump_time / 1.8):
-            keyboard.press("down")
+                self.obstacle_queue.pop(0)
 
     def _duck(self):
         curr_time = time.time()
@@ -221,6 +209,8 @@ class DinoAutoRunner:
                 self._duck()
             else:
                 self._jump()
+        else:
+            self.obstacle_handled = False
 
 
 def main():
@@ -229,6 +219,7 @@ def main():
     print("Press 1 to start autorun")
     while True:
         if keyboard.is_pressed('1') and not auto_runner.is_running:
+            print("4")
             time.sleep(1)
             print("3")
             time.sleep(1)

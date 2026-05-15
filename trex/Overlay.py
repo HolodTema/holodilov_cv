@@ -2,6 +2,7 @@ import tkinter as tk
 import threading
 import queue
 import time
+from Zone import Zone
 
 
 class Overlay:
@@ -83,6 +84,15 @@ class Overlay:
         top = dict_window["top"] - stroke_width
         right = left + dict_window["width"] + stroke_width
         bottom = top + dict_window["height"] + stroke_width
+        coords = (left, top, right, bottom)
+        style = {'outline': outline, 'width': stroke_width}
+        return self._send_sync_command('draw_rect', (coords, style))
+
+    def draw_rect_from_zone(self, zone, stroke_width=2, outline='red'):
+        left = zone.left - stroke_width
+        top = zone.top - stroke_width
+        right = zone.get_bottom_right_x() + stroke_width
+        bottom = zone.get_bottom_right_y() + stroke_width
         coords = (left, top, right, bottom)
         style = {'outline': outline, 'width': stroke_width}
         return self._send_sync_command('draw_rect', (coords, style))

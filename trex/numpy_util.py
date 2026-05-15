@@ -32,3 +32,7 @@ def get_right_pixel_percent_pos(arr):
 def get_width_percent(arr):
     return get_right_pixel_percent_pos(arr) - get_left_pixel_percent_pos(arr)
 
+
+def get_amount_pixels(arr):
+    return arr.shape[0]*arr.shape[1]
+
