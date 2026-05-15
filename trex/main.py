@@ -11,7 +11,7 @@ import keyboard
 class DinoAutoRunner:
     MIN_SPEED = 6
     MAX_SPEED = 13
-    ACCELERATION = 0.0006
+    ACCELERATION = 0.0003
 
     def __init__(self, config_filename):
         path = Path(__file__).parent / config_filename
@@ -25,6 +25,7 @@ class DinoAutoRunner:
         self.recognize_forefront = True
         self.speed = None
         self.prev_jump_time = None
+        self.prev_duck_time = None
         self.image_binary = None
         self.obstacle_zone = None
         self.forefront_zone = None
@@ -36,6 +37,7 @@ class DinoAutoRunner:
     def start_autorun(self):
         self.is_running = True
         self.prev_jump_time = time.time()
+        self.prev_duck_time = time.time()
         self.speed = self.MIN_SPEED
         self.obstacle_queue = list()
         self.overlay.start()
@@ -60,7 +62,7 @@ class DinoAutoRunner:
                 print("GAME OVER!")
                 break
             self.game_over_pixels = game_over_pixels_now
-            time.sleep(0.01)
+            time.sleep(0.005)
 
     def stop_autorun(self):
         self.overlay.stop()
@@ -79,15 +81,15 @@ class DinoAutoRunner:
         obstacle_type_coefficient = 0.15
         if len(self.obstacle_queue) > 0:
             if self.obstacle_queue[0] == ObstacleType.WIDE_TALL:
-                obstacle_type_coefficient = 0.10
+                obstacle_type_coefficient = 0.13
             if self.obstacle_queue[0] == ObstacleType.SLIM_TALL:
                 obstacle_type_coefficient = 0.15
             if self.obstacle_queue[0] == ObstacleType.WIDE_LOW:
-                obstacle_type_coefficient = 0.20
+                obstacle_type_coefficient = 0.17
             if self.obstacle_queue[0] == ObstacleType.SLIM_LOW:
-                obstacle_type_coefficient = 0.25
+                obstacle_type_coefficient = 0.20
 
-        speed_delta = int(0.016 * self.speed)
+        speed_delta = int(0.019 * self.speed)
         self.obstacle_zone = dict()
         self.obstacle_zone["left"] = int(self.game_window["width"] * (0.13 + speed_delta))
         self.obstacle_zone["top"] = int(self.game_window["height"] * 0.7)
@@ -146,13 +148,16 @@ class DinoAutoRunner:
             if len(self.obstacle_queue) > 0:
                 ob = self.obstacle_queue.pop(0)
                 print("jump ob: ", ob)
-        elif time.time() - self.prev_jump_time >= 0.2:
+        elif time.time() - self.prev_jump_time >= 0.19:
             keyboard.send("down")
 
     def _duck(self):
-        keyboard.press("down")
-        time.sleep(0.3)
-        keyboard.release("down")
+        curr_time = time.time()
+        if curr_time - self.prev_duck_time > 0.35:
+            self.prev_duck_time = curr_time
+            keyboard.press("down")
+        elif curr_time - self.prev_duck_time > 0.33:
+            keyboard.release("down")
 
     def _handle_forefront(self):
         bottom_right_x = self.forefront_zone["left"] + self.forefront_zone["width"]
@@ -167,6 +172,13 @@ class DinoAutoRunner:
             if self.recognize_forefront:
                 image_forefront_inner = image_forefront_zone[:, int(self.forefront_zone["width"]*0.1):int(self.forefront_zone["width"]*0.9)]
                 if np.sum(image_forefront_inner) / (image_forefront_inner.shape[0]*image_forefront_inner.shape[1]) > 0.1:
+                    # bottom_pixel_percent_pos = get_bottom_pixel_percent_pos(image_forefront_inner)
+                    # if bottom_pixel_percent_pos <= 0.45:
+                    #     print("BIRD TO DUCK")
+                    #     self.obstacle_queue += [ObstacleType.BIRD_TO_DUCK]
+                    #     self.recognize_forefront = False
+                    #     return
+
                     top_pixel_percent_pos = get_top_pixel_percent_pos(image_forefront_inner)
                     width_percent = get_width_percent(image_forefront_inner)
                     if top_pixel_percent_pos < 0.2:
@@ -193,11 +205,11 @@ class DinoAutoRunner:
         image_obstacle_zone = self.image_binary[self.obstacle_zone["top"]: bottom_right_y, self.obstacle_zone["left"]:bottom_right_x]
 
         amount_pixels = self.obstacle_zone["width"] * self.obstacle_zone["height"]
-        amount_pixels_bottom_third = self.obstacle_zone["width"] * int(self.obstacle_zone["height"]/3)
+        amount_pixels_bottom_half = self.obstacle_zone["width"] * (self.obstacle_zone["height"]//2)
         percent_dark_pixels = np.sum(image_obstacle_zone) / amount_pixels
-        percent_dark_pixels_bottom_third = np.sum(image_obstacle_zone[int(self.obstacle_zone["height"]/3*2):, :]) / amount_pixels_bottom_third
-        if percent_dark_pixels > 0.02:
-            if percent_dark_pixels_bottom_third < 0.02:
+        percent_dark_pixels_bottom_half = np.sum(image_obstacle_zone[self.obstacle_zone["height"]//2:, :]) / amount_pixels_bottom_half
+        if percent_dark_pixels > 0.05:
+            if percent_dark_pixels_bottom_half < 0.05:
                 self._duck()
             else:
                 self._jump()
@@ -209,7 +221,14 @@ def main():
     print("Press 1 to start autorun")
     while True:
         if keyboard.is_pressed('1') and not auto_runner.is_running:
-            print("autorun started")
+            time.sleep(1)
+            print("3")
+            time.sleep(1)
+            print("2")
+            time.sleep(1)
+            print("1")
+            time.sleep(1)
+            print("GO!")
             auto_runner.start_autorun()
 
 

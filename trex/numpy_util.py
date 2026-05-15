@@ -8,6 +8,13 @@ def get_top_pixel_percent_pos(arr):
     return -1
 
 
+def get_bottom_pixel_percent_pos(arr):
+    for i in range(arr.shape[0]-1, -1, -1):
+        if np.sum(arr[i, :]) > 0:
+            return (i / arr.shape[0])
+    return -1
+
+
 def get_left_pixel_percent_pos(arr):
     for i in range(arr.shape[1]):
         if np.sum(arr[:, i]) > 0:

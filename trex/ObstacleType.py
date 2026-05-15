@@ -6,4 +6,5 @@ class ObstacleType(Enum):
     SLIM_TALL = 1
     WIDE_LOW = 2
     WIDE_TALL = 3
+    BIRD_TO_DUCK = 4
 
