@@ -13,6 +13,8 @@ class DinoAutoRunner:
     MAX_SPEED = 13
     ACCELERATION = 0.0003
 
+    START_JUMP_TIME = 0.52
+    JUMP_TIME_ACCELERATION = 0.000001667
     def __init__(self, config_filename):
         path = Path(__file__).parent / config_filename
         if not (path.exists()):
@@ -33,11 +35,13 @@ class DinoAutoRunner:
         self.game_over_pixels = None
         self.obstacle_queue = None
         self.canvas_obstacle_zone_id = None
+        self.jump_time = None
 
     def start_autorun(self):
         self.is_running = True
         self.prev_jump_time = time.time()
         self.prev_duck_time = time.time()
+        self.jump_time = self.START_JUMP_TIME
         self.speed = self.MIN_SPEED
         self.obstacle_queue = list()
         self.overlay.start()
@@ -56,7 +60,7 @@ class DinoAutoRunner:
             self.canvas_obstacle_zone_id = self._draw_obstacle_zone()
             if self.speed < self.MAX_SPEED:
                 self.speed += self.ACCELERATION
-
+                self.jump_time -= self.JUMP_TIME_ACCELERATION
             game_over_pixels_now = self._get_game_over_pixels()
             if game_over_pixels_now == self.game_over_pixels and game_over_pixels_now > 30:
                 print("GAME OVER!")
@@ -141,15 +145,19 @@ class DinoAutoRunner:
         self.overlay.draw_rect_from_dict(game_over_zone_absolute)
 
     def _jump(self):
-        if time.time() - self.prev_jump_time >= 0.3:
-            self.prev_jump_time = time.time()
+        curr_time = time.time()
+        if curr_time - self.prev_jump_time >= self.jump_time:
+            self.prev_jump_time = curr_time
             keyboard.send("up")
             print("jump sent")
             if len(self.obstacle_queue) > 0:
                 ob = self.obstacle_queue.pop(0)
                 print("jump ob: ", ob)
-        elif time.time() - self.prev_jump_time >= 0.19:
-            keyboard.send("down")
+        elif curr_time - self.prev_jump_time >= (self.jump_time / 1.1):
+            if keyboard.is_pressed("down"):
+                keyboard.release("down")
+        elif curr_time - self.prev_jump_time >= (self.jump_time / 1.8):
+            keyboard.press("down")
 
     def _duck(self):
         curr_time = time.time()
