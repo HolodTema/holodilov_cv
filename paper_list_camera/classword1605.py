@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
 import zmq
-
+from skimage.measure import label, regionprops
+import matplotlib.pyplot as plt
 
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
@@ -19,6 +20,19 @@ while True:
         break
     count += 1
     frame = cv2.imdecode(np.frombuffer(msg, np.uint8), -1)
+    gray = np.sum(frame, axis=2)
+    binary = gray > 300
+    labeled = label(binary)
+    prop = regionprops(labeled)[0]
+
+    centroid_x, centroid_y = prop.centroid
+    a_ellipse_param = prop.major_axis_length / 2.0
+    b_ellipse_param = prop.minor_axis_length / 2.0
+    angle = prop.orientation
+
+    projection_axis_x = a_ellipse_param * np.cos(angle)
+    projection_a
+
     cv2.putText(frame, f"Count {count}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0))
     cv2.imshow("Stream", frame)
 
