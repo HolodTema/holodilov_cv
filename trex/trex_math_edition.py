@@ -7,6 +7,7 @@ from Zone import Zone
 from Obstacle import Obstacle
 from numpy_util import *
 import keyboard
+import math
 
 
 class DinoAutoRunner:
@@ -28,23 +29,22 @@ class DinoAutoRunner:
         self.speed = None
         self.DINO_LEFT = int(self.game_window.width * 0.063)
         self.DINO_RIGHT = int(self.game_window.width * 0.135)
-        self.is_jumping = False
         self.jump_end_time = 0
         self.forefront_zone = None
         self.obstacle_queue = None
         self.image_binary = None
+        self.start_time = None
 
     def start_autorun(self):
         self.is_running = True
-        self.is_jumping = False
         self.recognize_forefront = True
         self.speed = self.MIN_SPEED
         self.obstacle_queue = list()
         self.forefront_zone = Zone(
-            left=int(self.game_window.width * 0.78),
+            left=int(self.game_window.width * 0.5),
             top=int(self.game_window.height * 0.7),
             width=int(self.game_window.width * 0.17),
-            height=int(self.game_window.height * 0.29)
+            height=int(self.game_window.height * 0.27)
         )
 
         self.overlay.start()
@@ -67,23 +67,23 @@ class DinoAutoRunner:
 
         prev_time = time.time()
         canvas_ids = list()
+
+        self.start_time = time.time()
         while self.is_running:
             for canvas_id in canvas_ids:
                 self.overlay.clear_by_canvas_id(canvas_id)
-            # now_time = time.time()
-            # delta_time = now_time - prev_time
-            # if delta_time < 1/60:
-            #     time.sleep(1/60 - delta_time)
-            # prev_time = time.time()
+
+            now_time = time.time()
+            delta_ms = (now_time - prev_time) * 1000.0
+            prev_time = now_time
+            if delta_ms > 50:
+                delta_ms = 16.666
 
             self._take_screenshot()
             self._handle_forefront()
-            canvas_ids = self._handle_obstacle_queue()
-            if self.is_jumping and time.time() >= self.jump_end_time:
-                self.is_jumping = False
+            canvas_ids = self._handle_obstacle_queue(delta_ms)
             if self.speed < self.MAX_SPEED:
                 self.speed += self.ACCELERATION
-            time.sleep(0.016)
 
     def stop_autorun(self):
         self.overlay.stop()
@@ -96,11 +96,9 @@ class DinoAutoRunner:
             self.image_binary = (image_gray < 600)
 
     def _jump(self):
-        if self.is_jumping:
-            return
+        print("try jump")
         keyboard.send("up")
         print("JUMP")
-        self.is_jumping = True
         jump_duration = self._get_jump_duration()
         self.jump_end_time = time.time() + jump_duration
 
@@ -108,7 +106,33 @@ class DinoAutoRunner:
         pass
 
     def _get_jump_duration(self):
-        return (20.0 - self.speed / 5.0) / 36.0
+        return (20.0 - self._get_speed() / 5.0) / 36.0
+
+    def _get_time_to_reach_height(self, height: float):
+        CANVAS_HEIGHT = 150
+        TREX_HEIGHT = 47
+        BOTTOM_PAD = 10
+        TEXT_Y = 5
+        V0 = 12.0
+        G = 0.6
+
+        ground_y = CANVAS_HEIGHT - TREX_HEIGHT - BOTTOM_PAD
+        visible_height = ground_y - TEXT_Y
+        h_from_ground = visible_height * (1.0 - height)
+
+        if h_from_ground <= 0.0:
+            return 0.0
+        max_jump_h = V0 * V0 / (2 * G)
+        if h_from_ground >= max_jump_h:
+            return V0 / G
+        discriminant = V0 * V0 - 2 * G * h_from_ground
+        t = (V0 - math.sqrt(discriminant)) / G
+        return max(t, 0.0)
+
+    def _get_speed(self):
+        elapsed = time.time() - self.start_time
+        speed = self.MIN_SPEED + elapsed * 0.06
+        return min(speed, self.MAX_SPEED)
 
     def _handle_forefront(self):
         horizontal_padding = int(self.forefront_zone.width * 0.1)
@@ -152,37 +176,45 @@ class DinoAutoRunner:
         else:
             self.recognize_forefront = True
 
-    def _handle_obstacle_queue(self):
+    def _handle_obstacle_queue(self, delta_ms):
         canvas_ids = list()
         for i in range(len(self.obstacle_queue)):
-            self.obstacle_queue[i].move_with_speed(self.speed)
-            zone_to_draw = Zone(
-                left=self.obstacle_queue[i].right_border,
-                top=self.game_window.height + 20,
-                width=2,
-                height=2
-            )
-            canvas_ids += [self.overlay.draw_rect_from_zone(zone_to_draw.get_absolute_zone_from_parent_zone(self.game_window), outline="green")]
+            self.obstacle_queue[i].move_with_speed(self._get_speed(), delta_ms)
+            # zone_obstacle = Zone(
+            #     left=self.obstacle_queue[i].right_border,
+            #     top=self.game_window.height + 20,
+            #     width=self.obstacle_queue[i].width,
+            #     height=2
+            # )
+            # canvas_ids += [self.overlay.draw_rect_from_zone(zone_obstacle.get_absolute_zone_from_parent_zone(self.game_window), outline="green")]
 
-        # self.obstacle_queue = [obstacle for obstacle in self.obstacle_queue if obstacle.right_border < self.DINO_LEFT]
+        self.obstacle_queue = [obstacle for obstacle in self.obstacle_queue if obstacle.right_border >= self.DINO_RIGHT]
 
-        # if len(self.obstacle_queue) == 0 or self.is_jumping:
         if len(self.obstacle_queue) == 0:
-            # print("queue is empty, return")
             return canvas_ids
 
         first_obstacle: Obstacle = self.obstacle_queue[0]
-        if first_obstacle.is_tall:
-            coeff = -0.1
-        else:
-            coeff = -0.07
-
-        if self.speed*((self._get_jump_duration())*60+coeff) >= (first_obstacle.right_border-self.DINO_LEFT):
+        # if first_obstacle.is_wide and first_obstacle.is_tall:
+        #     coeff = 0.13
+        # elif first_obstacle.is_wide and not(first_obstacle.is_tall):
+        #     coeff = 0.08
+        # elif not(first_obstacle.is_wide) and first_obstacle.is_tall:
+        #     coeff = 0.11
+        # else:
+        #     coeff = 0.10
+        time = self._get_jump_duration() - self._get_time_to_reach_height(first_obstacle.top_border) + 0.03
+        print(time)
+        if self._get_speed() * (time * 60) >= (first_obstacle.right_border - self.DINO_LEFT):
             self._jump()
             self.obstacle_queue.pop(0)
-        else:
-            pass
-            # print("I see I cannot jump")
+        # if len(self.obstacle_queue) == 1:
+        #
+        # else:
+        #     second_obstacle: Obstacle = self.obstacle_queue[1]
+        #     if self._get_speed()*((self._get_jump_duration()-coeff)*60) >= (first_obstacle.right_border-self.DINO_LEFT) \
+        #         and self._get_speed()*((self._get_jump_duration()-coeff)*60) <= (second_obstacle.left_border-self.DINO_LEFT):
+        #         self._jump()
+        #         self.obstacle_queue.pop(0)
         return canvas_ids
 
 

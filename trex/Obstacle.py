@@ -1,5 +1,6 @@
 from enum import Enum
 import numpy as np
+import math
 from Zone import Zone
 
 
@@ -40,7 +41,9 @@ class Obstacle:
         width_percent = float(self.width) / float(game_window.width)
         self.is_wide = width_percent > 0.7
 
-    def move_with_speed(self, speed: float):
-        self.right_border -= int(speed+8)
-        self.left_border -= int(speed+8)
+    def move_with_speed(self, speed: float, delta_ms):
+        move = speed * 60.0 / 1000.0 * delta_ms
+        step = int(math.floor(move))
+        self.left_border -= step
+        self.right_border -= step
 
